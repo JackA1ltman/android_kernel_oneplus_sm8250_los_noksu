@@ -106,3 +106,4 @@ obj-$(CONFIG_OEM_QMI)	+= oem_qmi_client.o
 #endif
 obj-y                           += qrc/
 obj-$(CONFIG_KINECTICS_XR_NORDIC) += kxrctrl/
+obj-$(CONFIG_NTSYNC)		+= ntsync.o
