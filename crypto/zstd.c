@@ -22,6 +22,9 @@
 #include <linux/zstd.h>
 #include <crypto/internal/scompress.h>
 
+uint compression_level = 1;
+module_param(compression_level, uint, 0644);
+
 struct zstd_ctx {
 	zstd_cctx *cctx;
 	zstd_dctx *dctx;
@@ -249,7 +252,7 @@ static int __init zstd_mod_init(void)
 	if (ret)
 		crypto_unregister_alg(&alg);
 
-	pr_warn("ZSTD_DEF_LEVEL val %d\n", ZSTD_DEF_LEVEL);
+	pr_warn("compression_level val %d\n", compression_level);
 	return ret;
 }
 
