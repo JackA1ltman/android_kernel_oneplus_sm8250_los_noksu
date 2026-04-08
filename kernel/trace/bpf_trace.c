@@ -448,6 +448,7 @@ BPF_CALL_5(bpf_trace_printk, char *, fmt, u32, fmt_size, u64, arg1,
 			mod[fmt_cnt]++;
 			i++;
 		} else if (fmt[i] == 'p' || fmt[i] == 's') {
+			char orig = fmt[i];
 			mod[fmt_cnt]++;
 			
 			if ((fmt[i + 1] == 'k' ||
@@ -465,7 +466,6 @@ BPF_CALL_5(bpf_trace_printk, char *, fmt, u32, fmt_size, u64, arg1,
 			    !isspace(fmt[i + 1]) &&
 			    !ispunct(fmt[i + 1]))
 				return -EINVAL;
-			fmt_cnt++;
 			if (fmt[i] == 's') {
 				if (str_seen)
 					/* allow only one '%s' per fmt string */
@@ -487,10 +487,12 @@ BPF_CALL_5(bpf_trace_printk, char *, fmt, u32, fmt_size, u64, arg1,
 					break;
 				}
 				buf[0] = 0;
-				strncpy_from_unsafe(buf,
-						    (void *) (long) unsafe_addr,
-						    sizeof(buf));
+				if (strncpy_from_unsafe(buf,
+					(void *)(long)unsafe_addr,
+										sizeof(buf)) < 0)
+					buf[0] = 0;
 			}
+			fmt_cnt++;
 			continue;
 		}
 
