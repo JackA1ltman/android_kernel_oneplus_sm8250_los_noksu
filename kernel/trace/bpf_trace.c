@@ -453,14 +453,11 @@ BPF_CALL_5(bpf_trace_printk, char *, fmt, u32, fmt_size, u64, arg1,
 			if ((fmt[i + 1] == 'k' ||
 			     fmt[i + 1] == 'u') &&
 			    fmt[i + 2] == 's') {
-				fmt_ptype = fmt[i + 1];
 				i += 2;
-				goto fmt_str;
 			}
 
 			if (fmt[i + 1] == 'B') {
 				i++;
-				goto fmt_next;
 			}
 
 			/* disallow any further format extensions */
@@ -1106,7 +1103,8 @@ static int bpf_send_signal_common(u32 sig, enum pid_type type)
 		 * to the irq_work. The current task may change when queued
 		 * irq works get executed.
 		 */
-		work->task = get_task_struct(current);
+		work->task = current;
+		get_task_struct(work->task);
 		work->sig = sig;
 		work->type = type;
 		irq_work_queue(&work->irq_work);
@@ -1154,7 +1152,7 @@ BPF_CALL_3(bpf_d_path, struct path *, path, char *, buf, u32, sz)
 	 * but let's double check it's valid anyway to workaround
 	 * potentially broken verifier.
 	 */
-	len = copy_from_kernel_nofault(&copy, path, sizeof(*path));
+	len = probe_kernel_read(&copy, path, sizeof(*path));
 	if (len < 0)
 		return len;
 
