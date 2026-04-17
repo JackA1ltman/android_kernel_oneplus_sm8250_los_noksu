@@ -1197,3 +1197,5 @@ CONFIG_LSM="lockdown,yama,loadpin,safesetid,integrity,selinux,smack,tomoyo,appar
 
 CONFIG_UCLAMP_TASK=y
 CONFIG_UCLAMP_BUCKETS_COUNT=5
+
+CONFIG_TECHPACK_CAMERA_ONEPLUS=y
