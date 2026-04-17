@@ -41,6 +41,11 @@ unsigned int uclamp_ed_task_filter(struct task_struct *p);
 
 #ifdef OPLUS_FEATURE_POWER_CPUFREQ
 #define schedtune_window_policy(tsk) 0
+#if defined(OPLUS_FEATURE_POWER_EFFICIENCY)
+#define uclamp_discount_wait_time(tsk) 0
+#define uclamp_top_task_filter(tsk) 0
+#define uclamp_ed_task_filter(tsk) 0
+#endif
 #endif
 
 #endif /* CONFIG_SCHED_TUNE */

@@ -82,8 +82,10 @@ int get_grp_adinfo(struct task_struct *p)
 	rcu_read_lock();
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0))
 	css = task_css(p, cpu_cgrp_id);
-#else
+#elif IS_ENABLED(CONFIG_SCHED_TUNE)
 	css = task_css(p, schedtune_cgrp_id);
+#else
+	css = NULL;
 #endif
 	if (!css) {
 		rcu_read_unlock();
