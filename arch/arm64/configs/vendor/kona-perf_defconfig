@@ -1195,7 +1195,4 @@ CONFIG_OPLUS_FEATURE_SIGKILL_DIAGNOSIS=y
 
 CONFIG_LSM="lockdown,yama,loadpin,safesetid,integrity,selinux,smack,tomoyo,apparmour,bpf"
 
-CONFIG_UCLAMP_TASK=y
-CONFIG_UCLAMP_BUCKETS_COUNT=5
-
 CONFIG_TECHPACK_CAMERA_ONEPLUS=y
