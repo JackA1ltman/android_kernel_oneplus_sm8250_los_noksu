@@ -89,16 +89,7 @@ bool test_task_uid(struct task_struct *task)
 
 int get_task_cgroup_id(struct task_struct *task)
 {
-	struct cgroup_subsys_state *css;
-
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0))
-	css = task_css(task, cpu_cgrp_id);
-#elif IS_ENABLED(CONFIG_SCHED_TUNE)
-	css = task_css(task, schedtune_cgrp_id);
-#else
-	css = NULL;
-#endif
-
+	struct cgroup_subsys_state *css = task_css(task, schedtune_cgrp_id);
 	return css ? css->id : -1;
 }
 
