@@ -469,7 +469,7 @@ static int btf_view_init(struct btf_view *view, const void *data, size_t size)
 	uint16_t magic;
 	uint8_t version;
 
-	if (size < sizeof(struct btf_header))
+	if (size < 24)
 		return -EINVAL;
 
 	magic = read_le16(raw);
@@ -481,7 +481,7 @@ static int btf_view_init(struct btf_view *view, const void *data, size_t size)
 	string_size = read_le32(raw + 20);
 
 	if (magic != BTF_MAGIC || version != BTF_VERSION ||
-	    header_size < sizeof(struct btf_header) || header_size > size ||
+	    header_size < 24 || header_size > size ||
 	    type_offset > size - header_size ||
 	    type_size > size - header_size - type_offset ||
 	    string_offset > size - header_size ||
