@@ -94,7 +94,7 @@ do_get() {
     fi
 
     missing=()
-    for cmd in curl git ccache 7za bpftool; do
+    for cmd in curl git ccache 7za bpftool pahole; do
         if ! command -v "$cmd" >/dev/null 2>&1; then
             missing+=("$cmd")
         fi
@@ -176,6 +176,10 @@ do_package() {
         cp -fp out/arch/arm64/boot/Image AnyKernel3/Image
         cp -fp out/arch/arm64/boot/dtbo.img AnyKernel3/dtbo.img
         cp -fp out/arch/arm64/boot/dtb AnyKernel3/dtb
+
+        sed -i 's/do.devicecheck=1/do.devicecheck=0/g' Anykernel3/anykernel.sh
+        sed -i 's!BLOCK=/dev/block/platform/omap/omap_hsmmc.0/by-name/boot;!BLOCK=auto;!g' Anykernel3/anykernel.sh
+        sed -i 's/IS_SLOT_DEVICE=0;/is_slot_device=auto;/g' Anykernel3/anykernel.sh
 
         7za a -mx9 ${BUILD_DEVICE}_kona_${BUILD_TIMESTAMP}.zip AnyKernel3/*
         info "Packed Anykernel3, filename: ${BUILD_DEVICE}_kona_${BUILD_TIMESTAMP}.zip"
