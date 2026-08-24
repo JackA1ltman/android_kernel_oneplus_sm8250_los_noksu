@@ -94,7 +94,7 @@ do_get() {
     fi
 
     missing=()
-    for cmd in curl git ccache 7za bpftool pahole; do
+    for cmd in curl git ccache 7za pahole; do
         if ! command -v "$cmd" >/dev/null 2>&1; then
             missing+=("$cmd")
         fi
