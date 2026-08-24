@@ -144,6 +144,8 @@ do_build() {
 
     if [ "$BUILD_DEVICE" == "oppo" ]; then
         ./scripts/config --file out/.config --disable STMVL53L1
+    else
+        export BRAND_SHOW_FLAG=oneplus
     fi
 
     make ARCH=arm64 O=out CC="ccache clang" NM=llvm-nm OBJDUMP=llvm-objdump STRIP=llvm-strip CROSS_COMPILE=$PWD/build_toolchain/gcc_64/bin/aarch64-linux-android- CROSS_COMPILE_ARM32=$PWD/build_toolchain/gcc_32/bin/arm-linux-androideabi- vendor/kona-perf_defconfig $BUILD_DEVICE.config
