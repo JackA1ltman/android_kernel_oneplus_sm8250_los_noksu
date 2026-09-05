@@ -13,7 +13,7 @@ jobs:
       matrix:
         include:
           - command: "BRAND_SHOW_FLAG=oneplus LD=ld.lld"
-            branch: "android16"
+            branch: "android17"
             name: "purchased"
             author: "JackA1ltman-android17"
             device: "oneplus8series-coloros17"
