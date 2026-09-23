@@ -143,18 +143,22 @@ do_build() {
     fi
 
     if [ "$BUILD_DEVICE" == "oppo" ]; then
-        make ARCH=arm64 O=out CC="ccache clang" NM=llvm-nm OBJDUMP=llvm-objdump STRIP=llvm-strip CROSS_COMPILE=$PWD/build_toolchain/gcc_64/bin/aarch64-linux-android- CROSS_COMPILE_ARM32=$PWD/build_toolchain/gcc_32/bin/arm-linux-androideabi- vendor/kona-perf_defconfig $BUILD_DEVICE.config
+        make ARCH=arm64 O=out CC="ccache clang" LD=ld.lld CROSS_COMPILE=$PWD/build_toolchain/gcc_64/bin/aarch64-linux-android- CROSS_COMPILE_ARM32=$PWD/build_toolchain/gcc_32/bin/arm-linux-androideabi- vendor/kona-perf_defconfig $BUILD_DEVICE.config
+
         ./scripts/config --file out/.config --disable STMVL53L1
+
+        # Unicode bypass fix
+        ./scripts/config --file out/.config --enable CONFIG_UNICODE
+
+        make ARCH=arm64 O=out CC="ccache clang" LD=ld.lld CROSS_COMPILE=$PWD/build_toolchain/gcc_64/bin/aarch64-linux-android- CROSS_COMPILE_ARM32=$PWD/build_toolchain/gcc_32/bin/arm-linux-androideabi- -j$(nproc --all)
     else
-        export BRAND_SHOW_FLAG=oneplus
-        make ARCH=arm64 O=out CC="ccache clang" NM=llvm-nm OBJDUMP=llvm-objdump STRIP=llvm-strip CROSS_COMPILE=$PWD/build_toolchain/gcc_64/bin/aarch64-linux-android- CROSS_COMPILE_ARM32=$PWD/build_toolchain/gcc_32/bin/arm-linux-androideabi- vendor/kona-perf_defconfig $BUILD_DEVICE.config
+        make ARCH=arm64 O=out CC="ccache clang" BRAND_SHOW_FLAG=oneplus LD=ld.lld CROSS_COMPILE=$PWD/build_toolchain/gcc_64/bin/aarch64-linux-android- CROSS_COMPILE_ARM32=$PWD/build_toolchain/gcc_32/bin/arm-linux-androideabi- vendor/kona-perf_defconfig $BUILD_DEVICE.config
+
+        # Unicode bypass fix
+        ./scripts/config --file out/.config --enable CONFIG_UNICODE
+
+        make ARCH=arm64 O=out CC="ccache clang" BRAND_SHOW_FLAG=oneplus LD=ld.lld CROSS_COMPILE=$PWD/build_toolchain/gcc_64/bin/aarch64-linux-android- CROSS_COMPILE_ARM32=$PWD/build_toolchain/gcc_32/bin/arm-linux-androideabi- -j$(nproc --all)
     fi
-
-    # Unicode bypass fix
-    ./scripts/config --file out/.config --enable CONFIG_UNICODE
-    make ARCH=arm64 O=out CC="ccache clang" NM=llvm-nm OBJDUMP=llvm-objdump STRIP=llvm-strip CROSS_COMPILE=$PWD/build_toolchain/gcc_64/bin/aarch64-linux-android- CROSS_COMPILE_ARM32=$PWD/build_toolchain/gcc_32/bin/arm-linux-androideabi- olddefconfig
-
-    make ARCH=arm64 O=out CC="ccache clang" NM=llvm-nm OBJDUMP=llvm-objdump STRIP=llvm-strip CROSS_COMPILE=$PWD/build_toolchain/gcc_64/bin/aarch64-linux-android- CROSS_COMPILE_ARM32=$PWD/build_toolchain/gcc_32/bin/arm-linux-androideabi- -j$(nproc --all)
 }
 
 do_package() {
