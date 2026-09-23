@@ -6,19 +6,19 @@ on:
 
 jobs:
   build-kernel:
-    name: Oneplus 8 Series - ${{ matrix.name }} - ${{ matrix.author }} - ${{ matrix.branch }}
-    runs-on: ubuntu-latest # u can changed to ubuntu 22.04, and need container set ubuntu-latest
+    name: Oneplus 8 Series - ${{ matrix.branch }}
+    runs-on: ubuntu-24.04 # u can changed to ubuntu 22.04, and need container set ubuntu-latest
     # container: ubuntu:bionic # if u need use arch linux -> archlinux/archlinux:latest or ubuntu 20.04 -> ubuntu:focal
     strategy:
       matrix:
         include:
-          - command: "BRAND_SHOW_FLAG=oneplus LD=ld.lld"
-            branch: "android17"
-            name: "purchased"
-            author: "JackA1ltman-android17"
-            device: "oneplus8series-coloros17"
+          - branch: "android17"
+            device: "op8series-coloros17"
             ksu: true
-      fail-fast: false
+          - branch: "android16"
+            device: "op8series-coloros16"
+            ksu: true
+      fail-fast: true
     env:
       CCACHE_COMPILERCHECK: "%compiler% -dumpmachine; %compiler% -dumpversion"
       CCACHE_NOHASHDIR: "true"
@@ -35,7 +35,7 @@ jobs:
         with:
           # this might remove tools that are actually needed,
           # if set to "true" but frees about 6 GB
-          tool-cache: true
+          preinstalled-runtimes: true
 
           # all of these default to true, but feel free to set to
           # "false" if necessary for your workflow
@@ -141,10 +141,10 @@ jobs:
           cd tmp
           7za a -mx9 tmp.zip *
           cd ..
-          cp -fp tmp/tmp.zip ${{ matrix.device }}-${{ matrix.author }}-${{ matrix.name }}-${{ matrix.branch }}-$TIME${{ env.KSU_NAME }}-DTB.zip
+          cp -fp tmp/tmp.zip ${{ matrix.device }}-$TIME${{ env.KSU_NAME }}-DTB.zip
           rm -rf tmp
 
-          echo "PACK_NAME_DTB=${{ matrix.device }}-${{ matrix.author }}-${{ matrix.name }}-${{ matrix.branch }}-$TIME${{ env.KSU_NAME }}-DTB.zip" >> $GITHUB_ENV
+          echo "PACK_NAME_DTB=${{ matrix.device }}-$TIME${{ env.KSU_NAME }}-DTB.zip" >> $GITHUB_ENV
 
       - name: Upload Build Artifacts For Anykernel3 to Openlist
         run: |
