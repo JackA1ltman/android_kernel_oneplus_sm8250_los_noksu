@@ -145,23 +145,23 @@ do_build() {
     if [ "$BUILD_DEVICE" == "oppo" ]; then
         info "=== Selected: OPPO ==="
 
-        make ARCH=arm64 O=out CC="ccache clang" LD=ld.lld CROSS_COMPILE=$PWD/build_toolchain/gcc_64/bin/aarch64-linux-android- CROSS_COMPILE_ARM32=$PWD/build_toolchain/gcc_32/bin/arm-linux-androideabi- vendor/kona-perf_defconfig $BUILD_DEVICE.config
+        make ARCH=arm64 O=out CC="ccache clang" LD=ld.lld CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE=$PWD/build_toolchain/gcc_64/bin/aarch64-linux-android- CROSS_COMPILE_ARM32=$PWD/build_toolchain/gcc_32/bin/arm-linux-androideabi- vendor/kona-perf_defconfig $BUILD_DEVICE.config
 
         ./scripts/config --file out/.config --disable STMVL53L1
 
         # Unicode bypass fix
         ./scripts/config --file out/.config --enable CONFIG_UNICODE
 
-        make ARCH=arm64 O=out CC="ccache clang" LD=ld.lld CROSS_COMPILE=$PWD/build_toolchain/gcc_64/bin/aarch64-linux-android- CROSS_COMPILE_ARM32=$PWD/build_toolchain/gcc_32/bin/arm-linux-androideabi- -j$(nproc --all)
+        make ARCH=arm64 O=out CC="ccache clang" LD=ld.lld CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE=$PWD/build_toolchain/gcc_64/bin/aarch64-linux-android- CROSS_COMPILE_ARM32=$PWD/build_toolchain/gcc_32/bin/arm-linux-androideabi- -j$(nproc --all)
     else
         info "=== Selected: OnePlus ==="
 
-        make ARCH=arm64 O=out CC="ccache clang" BRAND_SHOW_FLAG=oneplus LD=ld.lld CROSS_COMPILE=$PWD/build_toolchain/gcc_64/bin/aarch64-linux-android- CROSS_COMPILE_ARM32=$PWD/build_toolchain/gcc_32/bin/arm-linux-androideabi- vendor/kona-perf_defconfig $BUILD_DEVICE.config
+        make ARCH=arm64 O=out CC="ccache clang" BRAND_SHOW_FLAG=oneplus LD=ld.lld CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE=$PWD/build_toolchain/gcc_64/bin/aarch64-linux-android- CROSS_COMPILE_ARM32=$PWD/build_toolchain/gcc_32/bin/arm-linux-androideabi- vendor/kona-perf_defconfig $BUILD_DEVICE.config
 
         # Unicode bypass fix
         ./scripts/config --file out/.config --enable CONFIG_UNICODE
 
-        make ARCH=arm64 O=out CC="ccache clang" BRAND_SHOW_FLAG=oneplus LD=ld.lld CROSS_COMPILE=$PWD/build_toolchain/gcc_64/bin/aarch64-linux-android- CROSS_COMPILE_ARM32=$PWD/build_toolchain/gcc_32/bin/arm-linux-androideabi- -j$(nproc --all)
+        make ARCH=arm64 O=out CC="ccache clang" BRAND_SHOW_FLAG=oneplus LD=ld.lld CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE=$PWD/build_toolchain/gcc_64/bin/aarch64-linux-android- CROSS_COMPILE_ARM32=$PWD/build_toolchain/gcc_32/bin/arm-linux-androideabi- -j$(nproc --all)
     fi
 }
 
