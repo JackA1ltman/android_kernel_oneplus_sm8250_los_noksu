@@ -26,9 +26,11 @@ jobs:
 
     steps:
       - name: Git Kernel Source
+        env:
+          TOKEN: ${{ github.token }}
         run: |
           cd $GITHUB_WORKSPACE
-          git clone https://github.com/JackA1ltman/coloros16_sm8250_kernel.git -b "${{ matrix.branch }}"  coloros_sm8250_kernel --depth 1
+          git clone https://x-access-token:${TOKEN}@github.com/JackA1ltman/coloros16_sm8250_kernel.git -b "${{ matrix.branch }}"  coloros_sm8250_kernel --depth 1
 
       - name: Free Disk Space (Ubuntu)
         uses: jlumbroso/free-disk-space@main
