@@ -154,9 +154,9 @@ jobs:
           cd $GITHUB_WORKSPACE/coloros_sm8250_kernel
           mkdir -p tmp
 
-          cp -fp GITHUB_WORKSPACE/coloros_sm8250_kernel/out/arch/arm64/boot/Image tmp
-          cp -fp GITHUB_WORKSPACE/coloros_sm8250_kernel/out/arch/arm64/boot/dtb tmp
-          cp -fp GITHUB_WORKSPACE/coloros_sm8250_kernel/out/arch/arm64/boot/dtbo.img tmp
+          cp -fp $GITHUB_WORKSPACE/coloros_sm8250_kernel/out/arch/arm64/boot/Image tmp
+          cp -fp $GITHUB_WORKSPACE/coloros_sm8250_kernel/out/arch/arm64/boot/dtb tmp
+          cp -fp $GITHUB_WORKSPACE/coloros_sm8250_kernel/out/arch/arm64/boot/dtbo.img tmp
 
           cp -rp ./Anykernel3/* tmp
           cd tmp
