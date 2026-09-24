@@ -177,4 +177,4 @@ jobs:
         with:
           name: Kernel-${{ env.PACK_NAME_DTB }}
           path: |
-            ${{ env.PACK_NAME_DTB }}
+            coloros_sm8250_kernel/${{ env.PACK_NAME_DTB }}
