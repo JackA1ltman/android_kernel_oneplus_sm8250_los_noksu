@@ -89,7 +89,7 @@ jobs:
 
       - name: Get build tools
         run: |
-          cd GITHUB_WORKSPACE/coloros_sm8250_kernel
+          cd $GITHUB_WORKSPACE/coloros_sm8250_kernel
 
           bash build_kernel.sh -g
 
