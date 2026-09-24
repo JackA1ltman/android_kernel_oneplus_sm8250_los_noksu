@@ -170,7 +170,7 @@ jobs:
       - name: Upload Build Artifacts For Anykernel3 to Openlist
         run: |
           cd $GITHUB_WORKSPACE/coloros_sm8250_kernel
-          curl -T "$GITHUB_WORKSPACE/${{ env.PACK_NAME_DTB }}" -u "${{ secrets.OPENLIST_ACCOUNT }}" "${{ secrets.OPENLIST_LINK }}/${{ env.PACK_NAME_DTB }}"
+          curl -T "$GITHUB_WORKSPACE/coloros_sm8250_kernel/${{ env.PACK_NAME_DTB }}" -u "${{ secrets.OPENLIST_ACCOUNT }}" "${{ secrets.OPENLIST_LINK }}/${{ env.PACK_NAME_DTB }}"
 
       - name: Upload Build Artifacts For Anykernel3
         uses: actions/upload-artifact@v7
