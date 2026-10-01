@@ -21,6 +21,8 @@ extern void hybridswap_track(struct zram *zram, u32 index, struct mem_cgroup *me
 extern void hybridswap_untrack(struct zram *zram, u32 index);
 extern int hybridswap_fault_out(struct zram *zram, u32 index);
 extern bool hybridswap_delete(struct zram *zram, u32 index);
+extern void hybridswap_obj_size_sync(struct zram *zram, u32 index,
+		unsigned long size_old, unsigned long size_new);
 
 extern ssize_t hybridswap_report_show(struct device *dev,
 		struct device_attribute *attr, char *buf);

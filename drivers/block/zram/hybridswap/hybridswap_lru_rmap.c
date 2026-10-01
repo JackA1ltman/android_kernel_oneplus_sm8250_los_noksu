@@ -250,6 +250,42 @@ void zram_lru_del(struct zram *zram, u32 index)
 	atomic64_dec(&stat->zram_stored_pages);
 }
 
+/*
+ * The zram recompression path (BACKPORT v6.2) replaces an object in
+ * place without going through zram_free_page(), so hybridswap LRU
+ * membership and the memcg id survive, but the object size changes.
+ * Sync the per-memcg and global size accounting by the delta.  Must
+ * be called with the zram slot lock held, like zram_lru_add/del().
+ */
+void hybridswap_obj_size_sync(struct zram *zram, u32 index,
+			unsigned long size_old, unsigned long size_new)
+{
+	struct mem_cgroup *mcg;
+	struct hybridswap_stat *stat;
+	long delta;
+
+	if (size_old == size_new)
+		return;
+
+	stat = hybridswap_get_stat_obj();
+	if (!stat)
+		return;
+	if (!zram || !zram->area)
+		return;
+	if (index >= (u32)zram->area->nr_objs)
+		return;
+	if (zram_test_flag(zram, index, ZRAM_WB))
+		return;
+
+	mcg = zram_get_memcg(zram, index);
+	if (!mcg || !MEMCGRP_ITEM(mcg, zram) || !MEMCGRP_ITEM(mcg, zram)->area)
+		return;
+
+	delta = (long)size_new - (long)size_old;
+	atomic64_add(delta, &MEMCGRP_ITEM(mcg, zram_stored_size));
+	atomic64_add(delta, &stat->zram_stored_size);
+}
+
 void zram_rmap_insert(struct zram *zram, u32 index)
 {
 	unsigned long eswpentry;
