@@ -21,6 +21,8 @@
 int sa_audio_perf_enable = 1;
 int sa_audio_perf_status = 0;
 int sa_audio_debug_enable = 0;
+/* ported from the 5.10 (sm8450) sched_assist */
+int sa_audio_threshold_util = 51;
 
 u64 perf_timer_slack_ns = 50000;
 struct proc_dir_entry *audio_dir;
@@ -328,6 +330,47 @@ static const struct file_operations proc_status_fops = {
 	.read		= proc_status_read,
 };
 
+/* ported from the 5.10 (sm8450) sched_assist */
+static ssize_t proc_threshold_util_write(struct file *file, const char __user *buf,
+		size_t count, loff_t *ppos)
+{
+	char buffer[8];
+	int err, val;
+
+	memset(buffer, 0, sizeof(buffer));
+
+	if (count > sizeof(buffer) - 1)
+		count = sizeof(buffer) - 1;
+
+	if (copy_from_user(buffer, buf, count))
+		return -EFAULT;
+
+	buffer[count] = '\0';
+	err = kstrtoint(strstrip(buffer), 10, &val);
+	if (err)
+		return err;
+
+	sa_audio_threshold_util = val;
+
+	return count;
+}
+
+static ssize_t proc_threshold_util_read(struct file *file, char __user *buf,
+		size_t count, loff_t *ppos)
+{
+	char buffer[20];
+	size_t len = 0;
+
+	len = snprintf(buffer, sizeof(buffer), "threshold_util=%d\n", sa_audio_threshold_util);
+
+	return simple_read_from_buffer(buf, count, ppos, buffer, len);
+}
+
+static const struct file_operations proc_threshold_util_fops = {
+	.write		= proc_threshold_util_write,
+	.read		= proc_threshold_util_read,
+};
+
 int oplus_sched_assist_audio_proc_init(struct proc_dir_entry *dir)
 {
 	struct proc_dir_entry *proc_node;
@@ -360,7 +403,15 @@ int oplus_sched_assist_audio_proc_init(struct proc_dir_entry *dir)
 		goto err_creat_audio_status;
 	}
 
+	proc_node = proc_create("threshold_util", 0666, audio_dir, &proc_threshold_util_fops);
+	if (!proc_node) {
+		ux_err("failed to create proc node threshold_util\n");
+		goto err_creat_audio_threshold_util;
+	}
+
 	return 0;
+err_creat_audio_threshold_util:
+	remove_proc_entry("status", audio_dir);
 err_creat_audio_status:
 	remove_proc_entry("debug", audio_dir);
 err_creat_audio_debug:
@@ -382,6 +433,14 @@ static void set_sched_boost(struct task_struct *p, bool enable)
 	int ux_state = p->ux_state;
 #if IS_ENABLED(CONFIG_OPLUS_FEATURE_SCHED_UX_PRIORITY)
 	if (enable) {
+		/*
+		 * ported from the 5.10 (sm8450) sched_assist: drop inherited ux first,
+		 * otherwise unsetting the inheritance later would clear the audio ux too.
+		 */
+		if (atomic64_read(&p->inherit_ux) > 0) {
+			clear_all_inherit_type(p);
+			ux_state = 0;
+		}
 		ux_state = (ux_state | SA_TYPE_LIGHT | UX_PRIORITY_AUDIO);
 	} else {
 		ux_state = (ux_state & ~(SA_TYPE_LIGHT | SCHED_ASSIST_UX_PRIORITY_MASK));
@@ -424,7 +483,7 @@ void oplus_sched_assist_audio_latency_sensitive(struct task_struct *task, bool *
 	if (!is_audio_perf_status_on())
 		return;
 
-	if (*latency_sensitive || !is_audio_flaged(task))
+	if (*latency_sensitive || !is_audio_flaged(task) || is_task_util_over(task, sa_audio_threshold_util))
 		return;
 
 	*latency_sensitive = true;
@@ -502,8 +561,8 @@ bool oplus_sched_assist_audio_idle_balance(struct rq *this_rq)
 		if (!p)
 			goto skip;
 
-		/* we only allow audio-app group task doing this work */
-		if (!is_audio_flaged(p))
+		/* we only allow audio-app group task (util must < sa_audio_threshold_util) doing this work */
+		if (!is_audio_flaged(p) || is_task_util_over(p, sa_audio_threshold_util))
 			goto skip;
 
 		if (src_rq->clock - p->enqueue_time < AUDIO_RT_PULL_THRESHOLD_NS)

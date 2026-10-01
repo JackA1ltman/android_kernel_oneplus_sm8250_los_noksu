@@ -140,6 +140,7 @@ enum IM_FLAG_TYPE {
 	IM_FLAG_SYSTEMSERVER_PID,
 	IM_FLAG_FORBID_SET_CPU_AFFINITY_IN_KERNEL,
 	IM_FLAG_MIDASD,
+	IM_FLAG_LIGHT_THREAD,
 	MAX_IM_FLAG_TYPE,
 	/* NOTE:
 		IM_FLAG_FORBID_SET_CPU_AFFINITY must be the same value(11) as defined in TpdManager.java
@@ -194,6 +195,10 @@ enum OPLUS_LB_TYPE
 
 extern int global_debug_enabled;
 
+/* ported from the 5.10 (sm8450) sched_assist */
+#define BOOST_THRESHOLD_UNIT (51)
+extern int global_lowend_plat_opt;
+
 struct rq;
 extern int sysctl_input_boost_enabled;
 extern int sysctl_animation_type;
@@ -224,6 +229,8 @@ void reset_inherit_ux(struct task_struct *inherit_task, struct task_struct *ux_t
 void unset_inherit_ux(struct task_struct *task, int type);
 void unset_inherit_ux_value(struct task_struct *task, int type, int value);
 void inc_inherit_ux_refs(struct task_struct *task, int type);
+/* ported from the 5.10 (sm8450) sched_assist */
+void clear_all_inherit_type(struct task_struct *p);
 
 bool test_task_ux(struct task_struct *task);
 bool test_task_ux_depth(int ux_depth);
@@ -248,6 +255,10 @@ void place_entity_adjust_ux_task(struct cfs_rq *cfs_rq, struct sched_entity *se,
 bool should_ux_task_skip_further_check(struct sched_entity *se);
 bool should_ux_preempt_wakeup(struct task_struct *wake_task, struct task_struct *curr_task);
 bool should_ux_task_skip_cpu(struct task_struct *task, unsigned int cpu);
+/* ported from the 5.10 (sm8450) sched_assist */
+bool is_top(struct task_struct *task);
+bool is_heavy_load_top_task(struct task_struct *task);
+bool is_task_util_over(struct task_struct *task, int threshold);
 void set_ux_task_to_prefer_cpu(struct task_struct *task, int *orig_target_cpu);
 int set_ux_task_cpu_common_by_prio(struct task_struct *task, int *target_cpu, bool boost, bool prefer_idle, unsigned int type);
 bool ux_skip_sync_wakeup(struct task_struct *task, int *sync);
@@ -364,6 +375,12 @@ static inline bool is_small_task(struct task_struct *task)
 
 #define UX_EXEC_SLICE (4000000U)
 #define POSSIBLE_UX_MASK (SA_TYPE_LIGHT|SA_TYPE_HEAVY|SA_TYPE_ANIMATOR|SA_TYPE_LISTPICK|SA_TYPE_ONCE_UX)
+
+/*
+ * ux_state bits that count as "urgent" when arbitrating rt vs ux placement.
+ * The 5.10 source also sets SA_TYPE_SWIFT here, which 4.19 does not define.
+ */
+#define SA_TYPE_URGENT_MASK (SA_TYPE_LIGHT|SA_TYPE_ANIMATOR)
 
 #if IS_ENABLED(CONFIG_OPLUS_FEATURE_SCHED_UX_PRIORITY)
 

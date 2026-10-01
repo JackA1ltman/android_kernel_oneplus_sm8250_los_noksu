@@ -14,6 +14,7 @@
 #include <linux/seq_file.h>
 #include <../fs/proc/internal.h>
 #include <linux/thread_info.h>
+#include <linux/cgroup.h>
 
 #include "sched_assist_common.h"
 #include "sched_assist_slide.h"
@@ -60,6 +61,7 @@ static int param_ux_debug = 0;
 module_param_named(debug, param_ux_debug, uint, 0644);
 
 int global_debug_enabled;
+int global_lowend_plat_opt;
 static DEFINE_PER_CPU(int, prev_ux_state);
 #if IS_ENABLED(CONFIG_OPLUS_FEATURE_SCHED_UX_PRIORITY)
 static DEFINE_PER_CPU(int, prev_ux_priority);
@@ -1570,44 +1572,147 @@ static inline bool is_ux_task_prefer_cpu(struct task_struct *task, int cpu)
 	return true;
 }
 
-bool should_ux_task_skip_cpu(struct task_struct *task, unsigned int cpu)
+/*
+ * The helpers below are ported from the 5.10 (sm8450) sched_assist. The 5.10
+ * source derives the target cluster from the running scene instead of treating
+ * every ux task alike; 4.19 keeps ux tasks on a list and stores im_flag as a
+ * single value, so the equivalent checks are adapted here.
+ */
+bool is_top(struct task_struct *p)
 {
-	struct ux_sched_cputopo ux_cputopo = ux_sched_cputopo;
-	int cls_nr = ux_cputopo.cls_nr - 1;
-	bool is_skip_rt_cpu = true;
-	int silver_core_nr = 0;
+	struct cgroup_subsys_state *css;
 
-	if (!sysctl_sched_assist_enabled)
+	if (!p)
 		return false;
 
+	rcu_read_lock();
+	css = task_css(p, cpu_cgrp_id);
+	if (!css) {
+		rcu_read_unlock();
+		return false;
+	}
+	rcu_read_unlock();
+
+	return css->id == SA_CGROUP_TOP_APP;
+}
+
+bool is_heavy_load_top_task(struct task_struct *p)
+{
+	if (!is_top(p))
+		return false;
+
+	/* is UI main thread or RenderThread of TOP APP */
+	if ((p->pid == p->tgid) || !strncmp(p->comm, "RenderThread", 12))
+		return true;
+
+	return false;
+}
+
+bool is_task_util_over(struct task_struct *tsk, int threshold)
+{
+	/* WALT is disabled on sm8250, so this is the PELT-only variant */
+	return tsk->se.avg.util_avg >= threshold;
+}
+
+static inline bool test_task_im_flag(struct task_struct *task, int im_flag)
+{
+#ifdef CONFIG_OPLUS_UX_IM_FLAG
+	return task->ux_im_flag == im_flag;
+#else
+	return false;
+#endif
+}
+
+static inline int get_task_cls_for_scene(struct task_struct *task)
+{
+	struct ux_sched_cputopo ux_cputopo = ux_sched_cputopo;
+	int cls_max = ux_cputopo.cls_nr - 1;
+	int cls_mid = cls_max - 1;
+
+	/* only one cluster or init failed */
+	if (unlikely(cls_max <= 0))
+		return 0;
+
+	/* for 2 clusters cpu, mid = max */
+	if (cls_mid == 0)
+		cls_mid = cls_max;
+
+	/*
+	 * for launch scene, heavy ux task avoid move to min capacity cluster,
+	 * but light thread should scan from min capacity cluster.
+	 */
+	if (sched_assist_scene(SA_LAUNCH)) {
+		if (test_task_im_flag(task, IM_FLAG_LIGHT_THREAD))
+			return 0;
+		else if (test_sched_assist_ux_type(task, SA_TYPE_HEAVY | SA_TYPE_ANIMATOR))
+			return test_sched_assist_ux_type(task, SA_TYPE_ANIMATOR) ? cls_mid : cls_max;
+	}
+
+	if (global_lowend_plat_opt && test_sched_assist_ux_type(task, SA_TYPE_HEAVY)
+			&& is_heavy_load_top_task(task))
+		return cls_mid;
+
+	if (sched_assist_scene(SA_ANIM) && test_sched_assist_ux_type(task, SA_TYPE_ANIMATOR))
+		return is_task_util_over(task, BOOST_THRESHOLD_UNIT) ? cls_mid : 0;
+
+	if (sched_assist_scene(SA_LAUNCHER_SI))
+		return is_task_util_over(task, BOOST_THRESHOLD_UNIT) ? cls_mid : 0;
+
+	if (test_task_im_flag(task, IM_FLAG_CAMERA_HAL))
+		return cls_mid;
+
+	return 0;
+}
+
+static inline bool is_ux_task_prefer_cpu_for_scene(struct task_struct *task, unsigned int cpu)
+{
+	struct ux_sched_cputopo ux_cputopo = ux_sched_cputopo;
+	int cls_id = ux_cputopo.cls_nr - 1;
+
+	/* only one cluster or init failed */
+	if (unlikely(cls_id <= 0))
+		return true;
+
+	cls_id = get_task_cls_for_scene(task);
+	return arch_scale_cpu_capacity(NULL, cpu) >= ux_cputopo.sched_cls[cls_id].capacity;
+}
+
+static inline bool skip_rt_and_ux(struct task_struct *p)
+{
+	return !(sched_assist_scene(SA_LAUNCH) && p->pid == p->tgid
+		&& !test_sched_assist_ux_type(p, SA_TYPE_URGENT_MASK));
+}
+
+bool should_ux_task_skip_cpu(struct task_struct *task, unsigned int cpu)
+{
+	if (unlikely(!sysctl_sched_assist_enabled))
+		return false;
+
+	/* keep the 4.19 tree's camera-provider guard */
 	if (test_task_identify_ux(task, SA_TYPE_ID_CAMERA_PROVIDER)) {
-		if (cpu_rq(cpu)->curr && test_task_ux(cpu_rq(cpu)->curr)) {
+		if (cpu_rq(cpu)->curr && test_task_ux(cpu_rq(cpu)->curr))
 			return true;
-		}
 	}
 
 	if (!test_task_ux(task))
 		return false;
 
-	if ((sysctl_sched_assist_scene & SA_LAUNCH) && !is_ux_task_prefer_cpu(task, cpu))
+	if (!is_ux_task_prefer_cpu_for_scene(task, cpu))
 		return true;
 
-	if (cls_nr > 0)
-		silver_core_nr = cpumask_weight(&ux_cputopo.sched_cls[0].cpus);
-
-#define SILVER_NR_6 (6)
-	/* avoid ux being squeezed to small core by rt in 6+2 architecture*/
-	if ((sysctl_sched_assist_scene & SA_ANIM) && (silver_core_nr == SILVER_NR_6)
-		&& !oplus_is_min_capacity_cpu(cpu))
-		is_skip_rt_cpu = false;
-
-	if (!(sysctl_sched_assist_scene & SA_LAUNCH) || !test_sched_assist_ux_type(task, SA_TYPE_HEAVY)) {
-		if (is_skip_rt_cpu && cpu_rq(cpu)->rt.rt_nr_running)
+	if (skip_rt_and_ux(task)) {
+		if (cpu_rq(cpu)->rt.rt_nr_running)
 			return true;
 
-		/* avoid placing turbo ux into cpu which has animator ux or list ux */
-		if (cpu_rq(cpu)->curr && (test_sched_assist_ux_type(cpu_rq(cpu)->curr, SA_TYPE_ANIMATOR)
-			|| !list_empty(&cpu_rq(cpu)->ux_thread_list)))
+		/*
+		 * camera hal threads only skip rt: there are many of them, and
+		 * letting them skip each other easily pushes them onto the
+		 * prime core.
+		 */
+		if (test_task_im_flag(task, IM_FLAG_CAMERA_HAL))
+			return false;
+
+		if (!list_empty(&cpu_rq(cpu)->ux_thread_list))
 			return true;
 	}
 
@@ -1933,6 +2038,17 @@ void inc_inherit_ux_refs(struct task_struct *task, int type) {
 	rq = task_rq_lock(task, &flags);
 	inherit_ux_inc(task, type);
 	task_rq_unlock(rq, task, &flags);
+}
+
+/* ported from the 5.10 (sm8450) sched_assist */
+void clear_all_inherit_type(struct task_struct *p)
+{
+	if (!p)
+		return;
+
+	atomic64_set(&p->inherit_ux, 0);
+	p->ux_depth = 0;
+	oplus_set_ux_state_lock(p, 0, true);
 }
 
 bool task_is_sf_group(struct task_struct *p)
@@ -2271,6 +2387,11 @@ static ssize_t proc_ux_state_write(struct file *file, const char __user *buf,
 		ux_orig &= (SA_TYPE_ANIMATOR | SA_TYPE_ID_ALLOCATOR_SER | SA_TYPE_ID_CAMERA_PROVIDER);
 		oplus_set_ux_state_lock(task, ux_orig, true);
 	} else if (ux_state & SA_OPT_SET) { /* set target ux type and clear set opt */
+		/* ported from the 5.10 (sm8450) sched_assist */
+		if (atomic64_read(&task->inherit_ux) > 0) {
+			clear_all_inherit_type(task);
+			ux_orig = 0;
+		}
 		if (ux_state & SA_OPT_SET_PRIORITY) {
 			ux_orig &= ~(SCHED_ASSIST_UX_PRIORITY_MASK);
 		}
@@ -2278,7 +2399,12 @@ static ssize_t proc_ux_state_write(struct file *file, const char __user *buf,
 		oplus_set_ux_state_lock(task, ux_orig, true);
 	} else if (ux_orig & ux_state) { /* reset target ux type */
 		ux_orig &= ~ux_state;
-		oplus_set_ux_state_lock(task, ux_orig, true);
+		/* if ux_state->0 after clear ux bit, and it is inherited, should keep it */
+		if (!(ux_orig & SCHED_ASSIST_UX_MASK) && (ux_orig & SA_TYPE_INHERIT)) {
+			/* do nothing */
+		} else {
+			oplus_set_ux_state_lock(task, ux_orig, true);
+		}
 	}
 #else
 	/* remove priority bit of ux state on kernel 5.4 */
@@ -2618,6 +2744,47 @@ static const struct file_operations proc_debug_enabled_fops = {
 	.read		= proc_debug_enabled_read,
 };
 
+/* ported from the 5.10 (sm8450) sched_assist */
+static ssize_t proc_lowend_plat_opt_write(struct file *file, const char __user *buf,
+		size_t count, loff_t *ppos)
+{
+	char buffer[8];
+	int err, val;
+
+	memset(buffer, 0, sizeof(buffer));
+
+	if (count > sizeof(buffer) - 1)
+		count = sizeof(buffer) - 1;
+
+	if (copy_from_user(buffer, buf, count))
+		return -EFAULT;
+
+	buffer[count] = '\0';
+	err = kstrtoint(strstrip(buffer), 10, &val);
+	if (err)
+		return err;
+
+	global_lowend_plat_opt = val;
+
+	return count;
+}
+
+static ssize_t proc_lowend_plat_opt_read(struct file *file, char __user *buf,
+		size_t count, loff_t *ppos)
+{
+	char buffer[32];
+	size_t len = 0;
+
+	len = snprintf(buffer, sizeof(buffer), "lowend_plat_opt=%d\n", global_lowend_plat_opt);
+
+	return simple_read_from_buffer(buf, count, ppos, buffer, len);
+}
+
+static const struct file_operations proc_lowend_plat_opt_fops = {
+	.write		= proc_lowend_plat_opt_write,
+	.read		= proc_lowend_plat_opt_read,
+};
+
 static const struct file_operations proc_sched_impt_task_fops = {
 	.write		= proc_sched_impt_task_write,
 	.read		= proc_sched_impt_task_read,
@@ -2935,6 +3102,13 @@ static int __init oplus_sched_assist_init(void)
 #endif
 
 #endif
+
+	/* ported from the 5.10 (sm8450) sched_assist */
+	proc_node = proc_create("lowend_plat_opt", 0666, d_sched_assist, &proc_lowend_plat_opt_fops);
+	if (!proc_node) {
+		ux_err("failed to create proc node lowend_plat_opt\n");
+		remove_proc_entry("lowend_plat_opt", d_sched_assist);
+	}
 
 	return 0;
 
