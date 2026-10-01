@@ -26,7 +26,12 @@
 
 #define zram_clear_flag(zram, index, flag) (zram->table[index].flags &= ~BIT(flag))
 
-#define zram_set_element(zram, index, element) (zram->table[index].element = element)
+/*
+ * Do not name the last parameter "element": macro expansion would
+ * rewrite the struct member .element as well (e.g. a call site passing
+ * blk_idx would expand to table[index].blk_idx).
+ */
+#define zram_set_element(zram, index, element_val) (zram->table[index].element = element_val)
 
 #define zram_get_obj_size(zram, index) (zram->table[index].flags & (BIT(ZRAM_FLAG_SHIFT) - 1))
 
