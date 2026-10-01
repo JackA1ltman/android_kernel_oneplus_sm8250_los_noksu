@@ -6,6 +6,7 @@
 #define pr_fmt(fmt) "[HYBRIDSWAP]" fmt
 
 #include <linux/kernel.h>
+#include <linux/err.h>
 #include <linux/swap.h>
 #include <linux/sched/debug.h>
 
@@ -357,7 +358,7 @@ static int move_to_zram(struct zram *zram, u32 index, struct io_extent *io_ext)
 		io_ext->pages[i] = NULL;
 	}
 	handle = hybridswap_zsmalloc(zram->mem_pool, size, io_ext->pool);
-	if (!handle) {
+	if (IS_ERR_VALUE(handle)) {
 		hybp(HYB_ERR, "alloc handle failed, size = %d\n", size);
 		return -ENOMEM;
 	}

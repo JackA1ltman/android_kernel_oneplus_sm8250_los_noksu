@@ -1182,7 +1182,7 @@ static struct zram_entry *zram_entry_alloc(struct zram *zram,
 	unsigned long handle;
 
 	handle = zs_malloc(zram->mem_pool, len, flags);
-	if (!handle)
+	if (IS_ERR_VALUE(handle))
 		return NULL;
 
 	if (!zram_dedup_enabled(zram))
@@ -1386,14 +1386,14 @@ compress_again:
 				__GFP_HIGHMEM |
 				__GFP_MOVABLE |
 				__GFP_CMA);
-	if (!handle) {
+	if (IS_ERR_VALUE(handle)) {
 		zcomp_stream_put(zram->comp);
 		atomic64_inc(&zram->stats.writestall);
 		handle = zs_malloc(zram->mem_pool, comp_len,
 				GFP_NOIO | __GFP_HIGHMEM |
 				__GFP_MOVABLE | __GFP_CMA |
 				GFP_ATOMIC | ___GFP_HIGH_ATOMIC_ZRAM);
-		if (handle)
+		if (!IS_ERR_VALUE(handle))
 			goto compress_again;
 		return -ENOMEM;
 	}
