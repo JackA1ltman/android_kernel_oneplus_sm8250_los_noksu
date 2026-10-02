@@ -130,7 +130,14 @@ do_get() {
 
 do_build() {
     info "=== Execution Mode: Build Kernel ==="
-    BUILD_DEVICE="oneplus" # oneplus/fx2series/oppo
+    BUILD_DEVICE_NAME="oppo" # oneplus/fx2series/oppo
+
+    if [ "$BUILD_DEVICE_NAME" == "oppo" ] || [ "$BUILD_DEVICE_NAME" == "fx2series" ]; then
+        BUILD_DEVICE="oppo"
+    else
+        BUILD_DEVICE="oneplus"
+    fi
+
     export PATH=$PWD/build_toolchain/clang_los_12/bin:$PATH
 
     if [ ! -f "build_toolchain/clang_los_12/bin/clang" ] || [ ! -f "build_toolchain/gcc_32/bin/arm-linux-androideabi-ar" ] || [ ! -f "build_toolchain/gcc_64/bin/aarch64-linux-android-ar" ]; then
@@ -142,7 +149,7 @@ do_build() {
         rm -rf out
     fi
 
-    if [ "$BUILD_DEVICE" == "oppo" ]; then
+    if [ "$BUILD_DEVICE_NAME" == "oppo" ]; then
         info "=== Selected: OPPO ==="
 
         make ARCH=arm64 O=out CC="ccache clang" LD=ld.lld CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE=$PWD/build_toolchain/gcc_64/bin/aarch64-linux-android- CROSS_COMPILE_ARM32=$PWD/build_toolchain/gcc_32/bin/arm-linux-androideabi- vendor/kona-perf_defconfig $BUILD_DEVICE.config
@@ -153,7 +160,7 @@ do_build() {
         ./scripts/config --file out/.config --enable CONFIG_UNICODE
 
         make ARCH=arm64 O=out CC="ccache clang" LD=ld.lld CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE=$PWD/build_toolchain/gcc_64/bin/aarch64-linux-android- CROSS_COMPILE_ARM32=$PWD/build_toolchain/gcc_32/bin/arm-linux-androideabi- -j$(nproc --all)
-    elif [ "$BUILD_DEVICE" == "fx2series" ]; then
+    elif [ "$BUILD_DEVICE_NAME" == "fx2series" ]; then
         info "=== Selected: OPPO Find X2 Series ==="
 
         make ARCH=arm64 O=out CC="ccache clang" BRAND_SHOW_FLAG=oneplus LD=ld.lld CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE=$PWD/build_toolchain/gcc_64/bin/aarch64-linux-android- CROSS_COMPILE_ARM32=$PWD/build_toolchain/gcc_32/bin/arm-linux-androideabi- vendor/kona-perf_defconfig $BUILD_DEVICE.config
@@ -161,7 +168,7 @@ do_build() {
         # Unicode bypass fix
         ./scripts/config --file out/.config --enable CONFIG_UNICODE
 
-        make ARCH=arm64 O=out CC="ccache clang" BRAND_SHOW_FLAG=oneplus LD=ld.lld CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE=$PWD/build_toolchain/gcc_64/bin/aarch64-linux-android- CROSS_COMPILE_ARM32=$PWD
+        make ARCH=arm64 O=out CC="ccache clang" BRAND_SHOW_FLAG=oneplus LD=ld.lld CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE=$PWD/build_toolchain/gcc_64/bin/aarch64-linux-android- CROSS_COMPILE_ARM32=$PWD/build_toolchain/gcc_32/bin/arm-linux-androideabi- -j$(nproc --all)
     else
         info "=== Selected: OnePlus ==="
 
