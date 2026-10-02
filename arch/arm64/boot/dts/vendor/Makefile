@@ -21,6 +21,10 @@ subdir-y += 19805
 subdir-y += 20809
 # 9R
 subdir-y += 20828
+# Find X2
+subdir-y += 19065
+# Find X2 Pro
+subdir-y += 19066
 # Find X3
 subdir-y += 20061
 # GT Master Explorer edition
