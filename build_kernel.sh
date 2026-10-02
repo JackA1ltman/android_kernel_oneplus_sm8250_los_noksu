@@ -130,7 +130,7 @@ do_get() {
 
 do_build() {
     info "=== Execution Mode: Build Kernel ==="
-    BUILD_DEVICE="oneplus" # oneplus/oppo
+    BUILD_DEVICE="oneplus" # oneplus/fx2series/oppo
     export PATH=$PWD/build_toolchain/clang_los_12/bin:$PATH
 
     if [ ! -f "build_toolchain/clang_los_12/bin/clang" ] || [ ! -f "build_toolchain/gcc_32/bin/arm-linux-androideabi-ar" ] || [ ! -f "build_toolchain/gcc_64/bin/aarch64-linux-android-ar" ]; then
@@ -153,6 +153,15 @@ do_build() {
         ./scripts/config --file out/.config --enable CONFIG_UNICODE
 
         make ARCH=arm64 O=out CC="ccache clang" LD=ld.lld CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE=$PWD/build_toolchain/gcc_64/bin/aarch64-linux-android- CROSS_COMPILE_ARM32=$PWD/build_toolchain/gcc_32/bin/arm-linux-androideabi- -j$(nproc --all)
+    if [ "$BUILD_DEVICE" == "fx2series" ]; then
+        info "=== Selected: OPPO Find X2 Series ==="
+
+        make ARCH=arm64 O=out CC="ccache clang" BRAND_SHOW_FLAG=oneplus LD=ld.lld CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE=$PWD/build_toolchain/gcc_64/bin/aarch64-linux-android- CROSS_COMPILE_ARM32=$PWD/build_toolchain/gcc_32/bin/arm-linux-androideabi- vendor/kona-perf_defconfig $BUILD_DEVICE.config
+
+        # Unicode bypass fix
+        ./scripts/config --file out/.config --enable CONFIG_UNICODE
+
+        make ARCH=arm64 O=out CC="ccache clang" BRAND_SHOW_FLAG=oneplus LD=ld.lld CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE=$PWD/build_toolchain/gcc_64/bin/aarch64-linux-android- CROSS_COMPILE_ARM32=$PWD
     else
         info "=== Selected: OnePlus ==="
 
