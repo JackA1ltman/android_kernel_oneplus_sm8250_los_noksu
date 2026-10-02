@@ -1158,14 +1158,6 @@ static int ufshpb_map_req_error(struct ufshpb_req *map_req)
 	return 0;
 }
 
-#ifdef CONFIG_PM
-static inline void ufshpb_mimic_blk_pm_put_request(struct request *rq)
-{
-	if (rq->q->dev && !(rq->rq_flags & RQF_PM) && !--rq->q->nr_pending)
-		pm_runtime_mark_last_busy(rq->q->dev);
-}
-#endif
-
 /* routine : map_req compl */
 static void ufshpb_map_req_compl_fn(struct request *req, blk_status_t error)
 {
@@ -1174,9 +1166,6 @@ static void ufshpb_map_req_compl_fn(struct request *req, blk_status_t error)
 	unsigned long flags;
 	int ret;
 
-#ifdef CONFIG_PM
-	ufshpb_mimic_blk_pm_put_request(req);
-#endif
 	if (ufshpb_get_state(hpb->ufsf) != HPB_PRESENT)
 		goto free_map_req;
 
