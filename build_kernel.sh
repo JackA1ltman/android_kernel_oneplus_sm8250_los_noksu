@@ -163,12 +163,12 @@ do_build() {
     elif [ "$BUILD_DEVICE_NAME" == "fx2series" ]; then
         info "=== Selected: OPPO Find X2 Series ==="
 
-        make ARCH=arm64 O=out CC="ccache clang" BRAND_SHOW_FLAG=oneplus LD=ld.lld CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE=$PWD/build_toolchain/gcc_64/bin/aarch64-linux-android- CROSS_COMPILE_ARM32=$PWD/build_toolchain/gcc_32/bin/arm-linux-androideabi- vendor/kona-perf_defconfig $BUILD_DEVICE.config
+        make ARCH=arm64 O=out CC="ccache clang" LD=ld.lld CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE=$PWD/build_toolchain/gcc_64/bin/aarch64-linux-android- CROSS_COMPILE_ARM32=$PWD/build_toolchain/gcc_32/bin/arm-linux-androideabi- vendor/kona-perf_defconfig $BUILD_DEVICE.config
 
         # Unicode bypass fix
         ./scripts/config --file out/.config --enable CONFIG_UNICODE
 
-        make ARCH=arm64 O=out CC="ccache clang" BRAND_SHOW_FLAG=oneplus LD=ld.lld CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE=$PWD/build_toolchain/gcc_64/bin/aarch64-linux-android- CROSS_COMPILE_ARM32=$PWD/build_toolchain/gcc_32/bin/arm-linux-androideabi- -j$(nproc --all)
+        make ARCH=arm64 O=out CC="ccache clang" LD=ld.lld CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE=$PWD/build_toolchain/gcc_64/bin/aarch64-linux-android- CROSS_COMPILE_ARM32=$PWD/build_toolchain/gcc_32/bin/arm-linux-androideabi- -j$(nproc --all)
     else
         info "=== Selected: OnePlus ==="
 
