@@ -335,7 +335,7 @@ void fuse_request_end(struct fuse_req *req)
 		spin_unlock(&fc->bg_lock);
 	} else {
 		/* Wake up waiter sleeping in request_wait_answer() */
-		wake_up(&req->waitq);
+		wake_up_sync(&req->waitq);
 	}
 
 	if (test_bit(FR_ASYNC, &req->flags))
@@ -1331,6 +1331,9 @@ static ssize_t fuse_dev_do_read(struct fuse_dev *fud, struct file *file,
 	clear_bit(FR_LOCKED, &req->flags);
 	if (!fpq->connected) {
 		err = fc->aborted ? -ECONNABORTED : -ENODEV;
+		/* Assign abnormal value to req->error when fpq disconnected */
+		if (req->in.h.opcode == FUSE_CANONICAL_PATH)
+			req->out.h.error = -ECONNABORTED;
 		goto out_end;
 	}
 	if (err) {
@@ -1981,9 +1984,12 @@ static ssize_t fuse_dev_do_write(struct fuse_dev *fud,
 
 	spin_lock(&fpq->lock);
 	clear_bit(FR_LOCKED, &req->flags);
-	if (!fpq->connected)
+	if (!fpq->connected) {
+		/* Assign abnormal value to req->error when fpq disconnected */
+		if (req->in.h.opcode == FUSE_CANONICAL_PATH)
+			req->out.h.error = -ECONNABORTED;
 		err = -ENOENT;
-	else if (err)
+	} else if (err)
 		req->out.h.error = -EIO;
 	if (!test_bit(FR_PRIVATE, &req->flags))
 		list_del_init(&req->list);
