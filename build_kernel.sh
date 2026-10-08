@@ -106,10 +106,13 @@ do_get() {
     fi
     info "All packages installed, Skip."
 
-    if [ -f "build_toolchain/clang_los_12/bin/clang" ]; then
+    if [ -f "build_toolchain/clang_ZyC_23/bin/clang" ]; then
         info "Detect clang existed, Skip."
     else
-        git clone -b lineage-20.0 https://github.com/LineageOS/android_prebuilts_clang_kernel_linux-x86_clang-r416183b.git build_toolchain/clang_los_12 --depth 1
+        curl -C - --progress-bar -L "https://github.com/ZyCromerZ/Clang/releases/download/23.0.0git-20260130-release/Clang-23.0.0git-20260130.tar.gz" -o "clang.tar.gz"
+        mkdir clang_ZyC_23
+        tar -C clang_ZyC_23/ -zxf clang.tar.gz
+        rm -f clang.tar.gz
         info "Get clang successfully."
     fi
 
@@ -138,9 +141,9 @@ do_build() {
         BUILD_DEVICE="oneplus"
     fi
 
-    export PATH=$PWD/build_toolchain/clang_los_12/bin:$PATH
+    export PATH=$PWD/build_toolchain/clang_ZyC_23/bin:$PATH
 
-    if [ ! -f "build_toolchain/clang_los_12/bin/clang" ] || [ ! -f "build_toolchain/gcc_32/bin/arm-linux-androideabi-ar" ] || [ ! -f "build_toolchain/gcc_64/bin/aarch64-linux-android-ar" ]; then
+    if [ ! -f "build_toolchain/clang_ZyC_23/bin/clang" ] || [ ! -f "build_toolchain/gcc_32/bin/arm-linux-androideabi-ar" ] || [ ! -f "build_toolchain/gcc_64/bin/aarch64-linux-android-ar" ]; then
         error "Build toolchain is incomplete. Please re-download it."
         exit 1
     fi
