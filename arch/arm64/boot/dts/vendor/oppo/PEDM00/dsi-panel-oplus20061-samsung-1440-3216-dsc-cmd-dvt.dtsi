@@ -3289,5 +3289,5 @@
 
 // #ifdef OPLUS_FEATURE_ADFR
 // this file is too large, so add OPlus ADFR timing in a overlay dtsi
-#include "dsi-panel-oplus20061-samsung-1440-3216-dsc-cmd-dvt-overlay.dtsi"
+#include "../../dsi-panels/dsi-panel-oplus20061-samsung-1440-3216-dsc-cmd-dvt-overlay.dtsi"
 // #endif

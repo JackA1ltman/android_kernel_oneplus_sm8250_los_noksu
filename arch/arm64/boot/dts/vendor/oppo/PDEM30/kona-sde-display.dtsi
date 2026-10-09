@@ -22,7 +22,7 @@
 #include "../../qcom/dsi-panel-sim-sec-hd-cmd.dtsi"
 #include "../../qcom/dsi-panel-xrsmrtvwr-jdi-dual-video.dtsi"
 //#ifdef VENDOR_EDIT
-#include "dsi-panel-samsung_oplus_dsc.dtsi"
+#include "../../oppo/dsi-panel-samsung_oplus_dsc.dtsi"
 #include "dsi-panel-oppo19065-samsung-1440-3168-dsc-cmd.dtsi"
 //#endif
 #include <dt-bindings/clock/mdss-7nm-pll-clk.h>
