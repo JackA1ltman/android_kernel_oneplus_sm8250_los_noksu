@@ -12,11 +12,8 @@ jobs:
     strategy:
       matrix:
         include:
-          - branch: "android17"
+          - branch: "stable/android17"
             device: "op8series-coloros17"
-            ksu: true
-          - branch: "android16"
-            device: "op8series-coloros16"
             ksu: true
       fail-fast: true
     env:
