@@ -2781,6 +2781,14 @@ static int bq27541_get_battery_soh(void) /*  sjc20150105  */
 			ret_q = zy602_soh_hardware_defect_avoidance_scheme(gauge_ic, &soh);
 		}
 
+		/*
+		 * Some gauge firmwares (e.g. OP8 bq27411) report SOH in 0.1% units:
+		 * raw 857 means 85.7%. Normalize to 1% before clamping, otherwise the
+		 * out-of-range value is clamped to 100 and health always shows 100%.
+		 */
+		if (soh > 100 && soh <= 1000) {
+			soh = (soh + 5) / 10;
+		}
 		if (soh > 100) {
 			soh = 100;
 		}
@@ -2821,6 +2829,14 @@ static int bq27541_get_sub_battery_soh(void)
 			ret_q = zy602_soh_hardware_defect_avoidance_scheme(sub_gauge_ic, &soh);
 		}
 
+		/*
+		 * Some gauge firmwares (e.g. OP8 bq27411) report SOH in 0.1% units:
+		 * raw 857 means 85.7%. Normalize to 1% before clamping, otherwise the
+		 * out-of-range value is clamped to 100 and health always shows 100%.
+		 */
+		if (soh > 100 && soh <= 1000) {
+			soh = (soh + 5) / 10;
+		}
 		if (soh > 100) {
 			soh = 100;
 		}
