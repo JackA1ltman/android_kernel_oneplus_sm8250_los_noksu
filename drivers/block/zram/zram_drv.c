@@ -278,7 +278,7 @@ static ssize_t idle_store(struct device *dev,
 	if (!sysfs_streq(buf, "all")) {
 		u64 age_sec;
 
-		if (IS_ENABLED(CONFIG_ZRAM_MEMORY_TRACKING) &&
+		if (IS_ENABLED(CONFIG_ZRAM_TRACK_ENTRY_ACTIME) &&
 		    !kstrtoull(buf, 0, &age_sec))
 			cutoff_time = ktime_sub(ktime_get_boottime(),
 					ns_to_ktime(age_sec * NSEC_PER_SEC));
@@ -308,7 +308,7 @@ static ssize_t idle_store(struct device *dev,
 			continue;
 		}
 
-#ifdef CONFIG_ZRAM_MEMORY_TRACKING
+#ifdef CONFIG_ZRAM_TRACK_ENTRY_ACTIME
 		is_idle = !cutoff_time ||
 			ktime_after(cutoff_time, zram->table[index].ac_time);
 #endif
@@ -984,6 +984,14 @@ static int read_from_bdev(struct zram *zram, struct bio_vec *bvec,
 static void free_block_bdev(struct zram *zram, unsigned long blk_idx) {};
 #endif
 
+static void zram_accessed(struct zram *zram, u32 index)
+{
+	zram_clear_flag(zram, index, ZRAM_IDLE);
+#ifdef CONFIG_ZRAM_TRACK_ENTRY_ACTIME
+	zram->table[index].ac_time = ktime_get_boottime();
+#endif
+}
+
 #ifdef CONFIG_ZRAM_MEMORY_TRACKING
 
 static struct dentry *zram_debugfs_root;
@@ -996,12 +1004,6 @@ static void zram_debugfs_create(void)
 static void zram_debugfs_destroy(void)
 {
 	debugfs_remove_recursive(zram_debugfs_root);
-}
-
-static void zram_accessed(struct zram *zram, u32 index)
-{
-	zram_clear_flag(zram, index, ZRAM_IDLE);
-	zram->table[index].ac_time = ktime_get_boottime();
 }
 
 static ssize_t read_block_state(struct file *file, char __user *buf,
@@ -1084,10 +1086,6 @@ static void zram_debugfs_unregister(struct zram *zram)
 #else
 static void zram_debugfs_create(void) {};
 static void zram_debugfs_destroy(void) {};
-static void zram_accessed(struct zram *zram, u32 index)
-{
-	zram_clear_flag(zram, index, ZRAM_IDLE);
-};
 static void zram_debugfs_register(struct zram *zram) {};
 static void zram_debugfs_unregister(struct zram *zram) {};
 #endif
@@ -1484,7 +1482,7 @@ static void zram_free_page(struct zram *zram, size_t index)
 {
 	struct zram_entry *entry;
 
-#ifdef CONFIG_ZRAM_MEMORY_TRACKING
+#ifdef CONFIG_ZRAM_TRACK_ENTRY_ACTIME
 	zram->table[index].ac_time = 0;
 #endif
 	if (zram_test_flag(zram, index, ZRAM_IDLE))
@@ -1993,7 +1991,8 @@ out:
  * zs_malloc() handle.
  */
 static int zram_recompress(struct zram *zram, u32 index, struct page *page,
-			   u32 threshold, u32 prio, u32 prio_max)
+			   u64 *num_recomp_pages, u32 threshold, u32 prio,
+			   u32 prio_max)
 {
 	struct zcomp_strm *zstrm = NULL;
 	unsigned long handle_old, handle_new;
@@ -2087,6 +2086,9 @@ static int zram_recompress(struct zram *zram, u32 index, struct page *page,
 		break;
 	}
 
+	if (num_recomps && *num_recomp_pages)
+		*num_recomp_pages -= 1;
+
 	/*
 	 * We did not try to recompress, e.g. when we have only one
 	 * secondary algorithm and the page is already recompressed
@@ -2174,6 +2176,7 @@ static ssize_t recompress_store(struct device *dev,
 {
 	struct zram *zram = dev_to_zram(dev);
 	u32 prio = ZRAM_SECONDARY_COMP, prio_max = ZRAM_MAX_COMPS;
+	u64 num_recomp_pages = ULLONG_MAX;
 	unsigned long nr_pages;
 	char *args, *param, *val, *algo = NULL;
 	bool prio_param = false;
@@ -2212,6 +2215,17 @@ static ssize_t recompress_store(struct device *dev,
 			continue;
 		}
 
+		if (!strcmp(param, "max_pages")) {
+			/*
+			 * Limit the number of entries (pages) we attempt to
+			 * recompress.
+			 */
+			ret = kstrtoull(val, 10, &num_recomp_pages);
+			if (ret)
+				return ret;
+			continue;
+		}
+
 		if (!strcmp(param, "algo")) {
 			algo = val;
 			continue;
@@ -2226,11 +2240,13 @@ static ssize_t recompress_store(struct device *dev,
 		}
 	}
 
-	if (threshold >= PAGE_SIZE)
-		return -EINVAL;
-
 	down_read(&zram->init_lock);
 	if (!init_done(zram)) {
+		up_read(&zram->init_lock);
+		return -EINVAL;
+	}
+
+	if (threshold >= huge_class_size) {
 		up_read(&zram->init_lock);
 		return -EINVAL;
 	}
@@ -2292,6 +2308,9 @@ static ssize_t recompress_store(struct device *dev,
 	for (index = 0; index < nr_pages; index++) {
 		int err = 0;
 
+		if (!num_recomp_pages)
+			break;
+
 		zram_slot_lock(zram, index);
 
 		if (!zram_allocated(zram, index))
@@ -2327,8 +2346,8 @@ static ssize_t recompress_store(struct device *dev,
 			goto next;
 #endif
 
-		err = zram_recompress(zram, index, page, threshold,
-				      prio, prio_max);
+		err = zram_recompress(zram, index, page, &num_recomp_pages,
+				      threshold, prio, prio_max);
 next:
 		zram_slot_unlock(zram, index);
 		if (err) {
