@@ -1,6 +1,7 @@
 #ifndef _ZRAM_DRV_INTERNAL_H_
 #define _ZRAM_DRV_INTERNAL_H_
 
+#include <linux/wait_bit.h>
 #include "zram_drv.h"
 
 #ifdef BIT
@@ -8,9 +9,16 @@
 #define BIT(nr)		(1lu << (nr))
 #endif
 
-#define zram_slot_lock(zram, index) (bit_spin_lock(ZRAM_LOCK, &zram->table[index].flags))
+static inline void zram_slot_lock(struct zram *zram, u32 index)
+{
+	wait_on_bit_lock(&zram->table[index].flags, ZRAM_LOCK,
+			 TASK_UNINTERRUPTIBLE);
+}
 
-#define zram_slot_unlock(zram, index) (bit_spin_unlock(ZRAM_LOCK, &zram->table[index].flags))
+static inline void zram_slot_unlock(struct zram *zram, u32 index)
+{
+	clear_and_wake_up_bit(ZRAM_LOCK, &zram->table[index].flags);
+}
 
 #define init_done(zram)  (zram->disksize)
 

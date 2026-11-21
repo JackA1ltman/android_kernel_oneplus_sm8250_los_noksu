@@ -102,12 +102,12 @@ unsigned long hybridswap_zsmalloc(struct zs_pool *zs_pool,
 {
 	gfp_t gfp = __GFP_DIRECT_RECLAIM | __GFP_KSWAPD_RECLAIM |
 		__GFP_NOWARN | __GFP_HIGHMEM |	__GFP_MOVABLE;
-	return zs_malloc(zs_pool, size, gfp);
+	return zs_malloc(zs_pool, size, gfp, NUMA_NO_NODE);
 }
 
 unsigned long zram_zsmalloc(struct zs_pool *zs_pool, size_t size, gfp_t gfp)
 {
-	return zs_malloc(zs_pool, size, gfp);
+	return zs_malloc(zs_pool, size, gfp, NUMA_NO_NODE);
 }
 
 struct page *hybridswap_alloc_page(struct hybridswap_page_pool *pool,

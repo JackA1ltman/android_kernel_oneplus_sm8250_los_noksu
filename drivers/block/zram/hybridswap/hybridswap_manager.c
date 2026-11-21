@@ -323,12 +323,12 @@ static void __move_to_zram(struct zram *zram, u32 index, unsigned long handle,
 	}
 }
 
-static int move_to_zram(struct zram *zram, u32 index, struct io_extent *io_ext)
+static int move_to_zram(struct zram *zram, u32 index, struct io_extent *io_ext,
+			u8 *obj_buf)
 {
 	unsigned long handle, eswpentry;
 	struct mem_cgroup *mcg = NULL;
 	int size, i;
-	u8 *dst = NULL;
 
 	if (!zram) {
 		hybp(HYB_ERR, "NULL zram\n");
@@ -362,9 +362,8 @@ static int move_to_zram(struct zram *zram, u32 index, struct io_extent *io_ext)
 		hybp(HYB_ERR, "alloc handle failed, size = %d\n", size);
 		return -ENOMEM;
 	}
-	dst = zs_map_object(zram->mem_pool, handle, ZS_MM_WO);
-	copy_from_pages(dst, io_ext->pages, eswpentry, size);
-	zs_unmap_object(zram->mem_pool, handle);
+	copy_from_pages(obj_buf, io_ext->pages, eswpentry, size);
+	zs_obj_write(zram->mem_pool, handle, obj_buf, size);
 	__move_to_zram(zram, index, handle, io_ext);
 
 	return 0;
@@ -430,6 +429,7 @@ static void extent_add(struct io_extent *io_ext,
 {
 	struct mem_cgroup *mcg = NULL;
 	struct zram *zram = NULL;
+	struct page *tmp_page = NULL;
 	int ext_id;
 	int k;
 
@@ -456,8 +456,14 @@ static void extent_add(struct io_extent *io_ext,
 						 ext_id,
 						 io_ext->index);
 	hybp(HYB_DEBUG, "ext_id = %d, cnt = %d.\n", ext_id, io_ext->cnt);
+	tmp_page = alloc_page(GFP_NOIO);
+	if (!tmp_page) {
+		hybp(HYB_ERR, "alloc tmp_page failed\n");
+		goto out;
+	}
 	for (k = 0; k < io_ext->cnt; k++) {
-		int ret = move_to_zram(zram, io_ext->index[k], io_ext);
+		int ret = move_to_zram(zram, io_ext->index[k], io_ext,
+				       page_address(tmp_page));
 
 		if (ret < 0)
 			goto out;
@@ -470,6 +476,8 @@ static void extent_add(struct io_extent *io_ext,
 		atomic_dec(&MEMCGRP_ITEM(mcg, hybridswap_extcnt));
 	}
 out:
+	if (tmp_page)
+		__free_page(tmp_page);
 	discard_io_extent(io_ext, REQ_OP_READ);
 	if (mcg)
 		css_put(&mcg->css);
@@ -510,7 +518,7 @@ static void extent_clear(struct zram *zram, int ext_id)
 }
 
 static int shrink_entry(struct zram *zram, u32 index, struct io_extent *io_ext,
-		 unsigned long ext_off)
+		 unsigned long ext_off, u8 *local_copy)
 {
 	unsigned long handle;
 	int size;
@@ -542,9 +550,9 @@ static int shrink_entry(struct zram *zram, u32 index, struct io_extent *io_ext,
 		return -ENOSPC;
 	}
 
-	src = zs_map_object(zram->mem_pool, handle, ZS_MM_RO);
+	src = zs_obj_read_begin(zram->mem_pool, handle, local_copy);
 	copy_to_pages(src, io_ext->pages, ext_off, size);
-	zs_unmap_object(zram->mem_pool, handle);
+	zs_obj_read_end(zram->mem_pool, handle, src);
 	io_ext->index[io_ext->cnt++] = index;
 
 	zram_lru_del(zram, index);
@@ -565,6 +573,7 @@ static int shrink_entry_list(struct io_extent *io_ext)
 	struct zram *zram = NULL;
 	unsigned long stored_size;
 	int *swap_index = NULL;
+	struct page *tmp_page = NULL;
 	int swap_cnt, k;
 	int swap_size = 0;
 
@@ -586,8 +595,14 @@ static int shrink_entry_list(struct io_extent *io_ext)
 	swap_index = kzalloc(sizeof(int) * EXTENT_MAX_OBJ_CNT, GFP_NOIO);
 	if (!swap_index)
 		return -ENOMEM;
+	tmp_page = alloc_page(GFP_NOIO);
+	if (!tmp_page) {
+		kfree(swap_index);
+		return -ENOMEM;
+	}
 	io_ext->ext_id = hybridswap_alloc_extent(zram->area, mcg);
 	if (io_ext->ext_id < 0) {
+		__free_page(tmp_page);
 		kfree(swap_index);
 		return io_ext->ext_id;
 	}
@@ -595,12 +610,14 @@ static int shrink_entry_list(struct io_extent *io_ext)
 						EXTENT_MAX_OBJ_CNT);
 	io_ext->cnt = 0;
 	for (k = 0; k < swap_cnt && swap_size < (int)EXTENT_SIZE; k++) {
-		int size = shrink_entry(zram, swap_index[k], io_ext, swap_size);
+		int size = shrink_entry(zram, swap_index[k], io_ext, swap_size,
+					page_address(tmp_page));
 
 		if (size < 0)
 			break;
 		swap_size += size;
 	}
+	__free_page(tmp_page);
 	kfree(swap_index);
 	hybp(HYB_DEBUG, "fill extent = %d, cnt = %d, overhead = %ld.\n",
 		 io_ext->ext_id, io_ext->cnt, EXTENT_SIZE - swap_size);

@@ -53,6 +53,7 @@
 #include <linux/cpumask.h>
 #include <linux/sched.h>
 
+#include <linux/wait_bit.h>
 #include <linux/zram/zram_drv.h>
 
 #define PF_NO_TAIL(page, enforce) ({					\
@@ -130,9 +131,11 @@ static int zwb_clear_walk_pmd_entry(pmd_t *pmd, unsigned long start,
 				continue;
 			zram = bdev->bd_disk->private_data;
 			index = sector >> SECTORS_PER_PAGE_SHIFT;
-			bit_spin_lock(ZRAM_LOCK, &zram->table[index].flags);
+			wait_on_bit_lock(&zram->table[index].flags, ZRAM_LOCK,
+					 TASK_UNINTERRUPTIBLE);
 			zram->table[index].flags &= ~BIT(ZRAM_IDLE);
-			bit_spin_unlock(ZRAM_LOCK, &zram->table[index].flags);
+			clear_and_wake_up_bit(ZRAM_LOCK,
+					      &zram->table[index].flags);
 			blk_queue_exit(bdev->bd_queue);
 		}
 	}
