@@ -10,6 +10,8 @@
 #include <linux/atomic.h>
 #include <linux/idr.h>
 #include <linux/freezer.h>
+#include <linux/genhd.h>
+#include <linux/mm_inline.h>
 
 #include "../zram_drv.h"
 #include "../zram_drv_internal.h"
@@ -314,7 +316,7 @@ static int akcompressd_func(void *data)
 	struct list_head compress_fail_list;
 	struct cgroup_cache_page *cache = NULL;
 
-	thread_idx = (int)data;
+	thread_idx = (int)(long)data;
 	if (thread_idx < 0 || thread_idx >= MAX_AKCOMPRESSD_THREADS) {
 		hybp(HYB_ERR, "akcompress task idx %d is invalid.\n", thread_idx);
 		return -EINVAL;
@@ -520,7 +522,6 @@ void __init akcompressd_pre_init(void)
 
 void __exit akcompressd_pre_deinit(void)
 {
-	int i;
 	struct page *page, *tmp;
 
 	mutex_lock(&akcompress_init_lock);
@@ -528,7 +529,7 @@ void __exit akcompressd_pre_deinit(void)
 		goto out;
 	list_for_each_entry_safe(page, tmp, &compress_info.free_page_head , lru) {
 		list_del(&page->lru);
-		free_page(page);
+		__free_page(page);
 	}
 
 out:
