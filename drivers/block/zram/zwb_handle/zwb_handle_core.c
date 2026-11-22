@@ -254,14 +254,17 @@ static int clear_fn(void *p)
 
 static int __init zwb_handle_init(void)
 {
+	struct task_struct *tsk;
+
 	//TODO: priority tuning for reclaimd/swapind
 
-	zwb_clear_tsk = kthread_run(clear_fn, 0, "zwb_clear_flag");
-	if (IS_ERR(zwb_clear_tsk)) {
+	tsk = kthread_run(clear_fn, 0, "zwb_clear_flag");
+	if (IS_ERR(tsk)) {
 		pr_err("Failed to start zwb_clear_flag_task\n");
-		zwb_clear_tsk = NULL;
+		return PTR_ERR(tsk);
 	}
 
+	WRITE_ONCE(zwb_clear_tsk, tsk);
 	return 0;
 }
 
@@ -272,15 +275,16 @@ static int __init zwb_handle_init(void)
  */
 static int zwb_handle_wake_clear_store(const char *buf, const struct kernel_param *kp)
 {
+	struct task_struct *tsk = READ_ONCE(zwb_clear_tsk);
 	unsigned int val;
 
-	if (!zwb_clear_tsk)
+	if (!tsk)
 		return -ESRCH;
 	if (sscanf(buf, "%u\n", &val) <= 0)
 		return -EINVAL;
 
 	if (val)
-		wake_up_process(zwb_clear_tsk);
+		wake_up_process(tsk);
 
 	return 0;
 }

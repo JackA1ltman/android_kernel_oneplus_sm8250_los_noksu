@@ -327,7 +327,12 @@ static ssize_t idle_store(struct device *dev,
 	up_read(&zram->init_lock);
 
 #ifdef CONFIG_ZWB_HANDLE
-	wake_up_process(zwb_clear_tsk);
+	{
+		struct task_struct *tsk = READ_ONCE(zwb_clear_tsk);
+
+		if (tsk)
+			wake_up_process(tsk);
+	}
 #endif
 
 	return len;
@@ -1139,7 +1144,7 @@ static ssize_t read_block_state(struct file *file, char __user *buf,
 	char *kbuf;
 	ssize_t index, written = 0;
 	struct zram *zram = file->private_data;
-	unsigned long nr_pages = zram->disksize >> PAGE_SHIFT;
+	unsigned long nr_pages;
 	struct timespec64 ts;
 
 	kbuf = kvmalloc(count, GFP_KERNEL);
@@ -1152,6 +1157,8 @@ static ssize_t read_block_state(struct file *file, char __user *buf,
 		kvfree(kbuf);
 		return -EINVAL;
 	}
+
+	nr_pages = zram->disksize >> PAGE_SHIFT;
 
 	for (index = *ppos; index < nr_pages; index++) {
 		int copied;
