@@ -3126,6 +3126,9 @@ static int __init oplus_sched_assist_init(void)
 		remove_proc_entry("lowend_plat_opt", d_sched_assist);
 	}
 
+	/* ColorOS 16+ interface (ux_task / ux_task_app ioctls), sa_ux_task.c */
+	oplus_ux_task_proc_init();
+
 	return 0;
 
 #ifdef CONFIG_OPLUS_UX_IM_FLAG
